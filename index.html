@@ -1,179 +1,547 @@
-import os
-import sys
-import json
-import datetime
-import requests
-import feedparser
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GK Parchi — Daily Current Affairs</title>
+<meta name="description" content="Daily current affairs parchi for SSC, Railway and other competitive exams." />
 
-GNEWS_API_KEY = os.environ.get("GNEWS_API_KEY")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+<!-- Markdown renderer -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
 
-if not GNEWS_API_KEY or not GEMINI_API_KEY:
-    print("ERROR: API Keys missing.")
-    sys.exit(1)
+<!-- Fonts: Manrope for display, Inter for body -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-RSS_FEEDS = {
-    "The Hindu": "https://www.thehindu.com/news/national/feeder/default.rss",
-    "NDTV Hindi": "https://feeds.feedburner.com/ndtv/ndtvkhabar",
-}
+<style>
+  :root{
+    --slate-950:#0b1220;
+    --slate-900:#0f172a;
+    --slate-800:#1e293b;
+    --slate-700:#334155;
+    --slate-500:#64748b;
+    --slate-300:#cbd5e1;
+    --slate-200:#e2e8f0;
+    --slate-100:#f1f5f9;
+    --slate-50:#f8fafc;
+    --blue-600:#2563eb;
+    --blue-500:#3b82f6;
+    --blue-50:#eff6ff;
+    --paper:#fffdf8;
+    --radius:10px;
+    --sidebar-w:300px;
+  }
 
-OUTPUT_DIR = "affairs"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+    background:var(--slate-50);
+    color:var(--slate-800);
+    -webkit-font-smoothing:antialiased;
+  }
 
-# Models to try, in order of preference. If one is retired/unavailable for
-# the API key, the code automatically falls through to the next one instead
-# of crashing the whole workflow.
-MODEL_CANDIDATES = [
-    "gemini-flash-latest",
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
-]
+  a{color:inherit;}
 
+  /* ---------- App shell ---------- */
+  .app{
+    display:flex;
+    min-height:100vh;
+  }
 
-def fetch_gnews():
-    url = f"https://gnews.io/api/v4/top-headlines?category=general&lang=en&country=in&max=10&apikey={GNEWS_API_KEY}"
-    items = []
-    try:
-        resp = requests.get(url, timeout=20)
-        if resp.status_code == 200:
-            for article in resp.json().get("articles", []):
-                items.append({
-                    "source": "GNews",
-                    "title": article.get("title", ""),
-                    "description": article.get("description", "")
-                })
-        else:
-            print(f"GNews HTTP {resp.status_code}: {resp.text[:300]}")
-    except Exception as e:
-        print(f"GNews Error: {e}")
-    return items
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    width:var(--sidebar-w);
+    flex-shrink:0;
+    background:var(--slate-900);
+    color:var(--slate-200);
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    position:sticky;
+    top:0;
+  }
 
+  .sidebar-header{
+    padding:24px 20px 16px;
+    border-bottom:1px solid rgba(255,255,255,0.08);
+  }
 
-def fetch_rss():
-    items = []
-    for name, url in RSS_FEEDS.items():
-        try:
-            feed = feedparser.parse(url)
-            for entry in feed.entries[:10]:
-                items.append({
-                    "source": name,
-                    "title": entry.get("title", ""),
-                    "description": entry.get("summary", "")
-                })
-        except Exception as e:
-            print(f"RSS Error ({name}): {e}")
-    return items
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
 
+  .brand-mark{
+    width:34px;
+    height:34px;
+    border-radius:8px;
+    background:linear-gradient(155deg,var(--blue-500),var(--blue-600));
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Manrope',sans-serif;
+    font-weight:800;
+    font-size:15px;
+    color:#fff;
+    flex-shrink:0;
+    /* torn-edge notch, echoes a slip of paper */
+    clip-path:polygon(0 6%,50% 0,100% 6%,100% 94%,50% 100%,0 94%);
+  }
 
-def get_available_models():
-    """Ask Google which models this API key can actually use for
-    generateContent, so we never hardcode a name that might get retired."""
-    url = f"https://generativelanguage.googleapis.com/v1beta/models?key={GEMINI_API_KEY}"
-    try:
-        resp = requests.get(url, timeout=20)
-        resp.raise_for_status()
-        data = resp.json()
-        usable = []
-        for m in data.get("models", []):
-            name = m.get("name", "").replace("models/", "")
-            methods = m.get("supportedGenerationMethods", [])
-            if "generateContent" in methods:
-                usable.append(name)
-        return usable
-    except Exception as e:
-        print(f"ListModels Error: {e}")
-        return []
+  .brand-text h1{
+    font-family:'Manrope',sans-serif;
+    font-size:16px;
+    font-weight:800;
+    margin:0;
+    color:#fff;
+    letter-spacing:0.2px;
+  }
 
+  .brand-text p{
+    margin:2px 0 0;
+    font-size:11.5px;
+    color:var(--slate-500);
+  }
 
-def call_gemini(model_name, prompt):
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={GEMINI_API_KEY}"
-    payload = {"contents": [{"parts": [{"text": prompt}]}]}
-    resp = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=60)
-    resp.raise_for_status()
-    data = resp.json()
-    return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+  .archive-label{
+    padding:18px 20px 8px;
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--slate-500);
+  }
 
+  .archive-list{
+    list-style:none;
+    margin:0;
+    padding:0 12px 16px;
+    overflow-y:auto;
+    flex:1;
+  }
 
-def get_ai_summary(news_items):
-    raw_text = "\n\n".join(
-        f"Title: {i['title']}\nDetails: {i['description']}" for i in news_items if i["title"]
-    )
-    prompt = (
-        "Create a daily current affairs digest for Indian competitive exams. "
-        "Group into: Schemes, Sports, Appointments, Science. Exclude politics/crime. "
-        "Use bilingual format (Hindi first / English translation). Keep it concise.\n\n"
-        f"News:\n{raw_text}"
-    )
+  .archive-list::-webkit-scrollbar{width:6px;}
+  .archive-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:10px;}
 
-    # Build the list of models to try: whatever this key actually supports
-    # (from ListModels), falling back to our known-good candidate list.
-    live_models = get_available_models()
-    ordered_candidates = live_models if live_models else []
-    for m in MODEL_CANDIDATES:
-        if m not in ordered_candidates:
-            ordered_candidates.append(m)
+  /* Each archive entry styled like a small torn "parchi" slip */
+  .parchi-item{
+    position:relative;
+    margin:6px 0;
+    padding:11px 14px 11px 16px;
+    border-radius:8px;
+    cursor:pointer;
+    background:rgba(255,255,255,0.03);
+    border:1px solid transparent;
+    transition:background .15s ease, border-color .15s ease, transform .1s ease;
+  }
 
-    last_error = None
-    for model_name in ordered_candidates:
-        try:
-            print(f"Trying model: {model_name}")
-            return call_gemini(model_name, prompt)
-        except requests.HTTPError as e:
-            last_error = e
-            body = e.response.text if e.response is not None else str(e)
-            print(f"Model '{model_name}' failed: {body[:300]}")
-            continue
-        except Exception as e:
-            last_error = e
-            print(f"Model '{model_name}' failed: {e}")
-            continue
+  .parchi-item::before{
+    content:"";
+    position:absolute;
+    left:0;
+    top:8px;
+    bottom:8px;
+    width:3px;
+    border-radius:2px;
+    background:transparent;
+    transition:background .15s ease;
+  }
 
-    print(f"ERROR: All models failed. Last error: {last_error}")
-    sys.exit(1)
+  .parchi-item:hover{
+    background:rgba(255,255,255,0.06);
+  }
 
+  .parchi-item.active{
+    background:var(--blue-600);
+    border-color:var(--blue-500);
+  }
 
-def save_output(summary_text):
-    today = datetime.datetime.now()
-    date_str = today.strftime("%d-%m-%Y")
-    filename = f"Current_Affairs_{date_str}.md"
-    filepath = os.path.join(OUTPUT_DIR, filename)
+  .parchi-item.active::before{
+    background:#fff;
+  }
 
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write(f"# GK Parchi — Daily Current Affairs — {today.strftime('%d %B %Y')}\n\n{summary_text}\n")
+  .parchi-date{
+    font-size:13.5px;
+    font-weight:600;
+    color:#fff;
+  }
 
-    manifest_path = os.path.join(OUTPUT_DIR, "latest.json")
-    archive = []
-    if os.path.exists(manifest_path):
-        try:
-            with open(manifest_path, "r", encoding="utf-8") as f:
-                archive = json.load(f).get("archive", [])
-        except Exception:
-            pass
+  .parchi-item.active .parchi-date{color:#fff;}
+  .parchi-item:not(.active) .parchi-date{color:var(--slate-200);}
 
-    archive = [a for a in archive if a.get("file") != filename]
-    archive.insert(0, {"date": date_str, "file": filename})
+  .parchi-tag{
+    display:block;
+    margin-top:3px;
+    font-size:11.5px;
+    color:var(--slate-500);
+  }
 
-    with open(manifest_path, "w", encoding="utf-8") as f:
-        json.dump({
-            "latest_date": date_str,
-            "latest_file": filename,
-            "archive": archive[:30]
-        }, f, indent=2)
-    print(f"Saved: {filepath}")
+  .parchi-item.active .parchi-tag{color:rgba(255,255,255,0.75);}
 
+  .sidebar-footer{
+    padding:14px 20px;
+    border-top:1px solid rgba(255,255,255,0.08);
+    font-size:11px;
+    color:var(--slate-500);
+  }
 
-def main():
-    items = fetch_gnews() + fetch_rss()
-    if not items:
-        print("No news fetched.")
-        sys.exit(1)
+  /* ---------- Topbar (mobile) ---------- */
+  .topbar{
+    display:none;
+    position:sticky;
+    top:0;
+    z-index:20;
+    align-items:center;
+    gap:12px;
+    padding:14px 16px;
+    background:var(--slate-50);
+    border-bottom:1px solid var(--slate-200);
+  }
 
-    summary = get_ai_summary(items)
-    if summary:
-        save_output(summary)
-        print("Done successfully!")
+  .hamburger{
+    width:38px;
+    height:38px;
+    border-radius:8px;
+    border:1px solid var(--slate-200);
+    background:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    flex-shrink:0;
+  }
 
+  .hamburger span{
+    display:block;
+    width:16px;
+    height:2px;
+    background:var(--slate-800);
+    position:relative;
+  }
+  .hamburger span::before,.hamburger span::after{
+    content:"";
+    position:absolute;
+    left:0;
+    width:16px;
+    height:2px;
+    background:var(--slate-800);
+  }
+  .hamburger span::before{top:-5px;}
+  .hamburger span::after{top:5px;}
 
-if __name__ == "__main__":
-    main()
+  .topbar-title{
+    font-family:'Manrope',sans-serif;
+    font-weight:800;
+    font-size:15px;
+    color:var(--slate-900);
+  }
+
+  /* ---------- Main content ---------- */
+  .main{
+    flex:1;
+    min-width:0;
+    display:flex;
+    justify-content:center;
+    padding:48px 32px 80px;
+  }
+
+  .content-card{
+    width:100%;
+    max-width:760px;
+  }
+
+  .content-eyebrow{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:10px;
+  }
+
+  .eyebrow-dot{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--blue-600);
+  }
+
+  .eyebrow-text{
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--blue-600);
+  }
+
+  #content-title{
+    font-family:'Manrope',sans-serif;
+    font-size:clamp(22px,3vw,30px);
+    font-weight:800;
+    color:var(--slate-900);
+    margin:0 0 28px;
+    line-height:1.25;
+  }
+
+  /* Markdown body */
+  #markdown-body{
+    background:var(--paper);
+    border:1px solid var(--slate-200);
+    border-radius:var(--radius);
+    padding:36px 40px;
+    line-height:1.75;
+    font-size:15.5px;
+    color:var(--slate-700);
+  }
+
+  #markdown-body h1,#markdown-body h2,#markdown-body h3{
+    font-family:'Manrope',sans-serif;
+    color:var(--slate-900);
+    font-weight:700;
+    line-height:1.35;
+  }
+  #markdown-body h1{font-size:22px;margin:0 0 14px;}
+  #markdown-body h2{font-size:18.5px;margin:28px 0 12px;padding-top:14px;border-top:1px solid var(--slate-100);}
+  #markdown-body h2:first-child{border-top:none;padding-top:0;margin-top:0;}
+  #markdown-body h3{font-size:16px;margin:20px 0 8px;}
+  #markdown-body p{margin:0 0 14px;}
+  #markdown-body ul,#markdown-body ol{margin:0 0 16px;padding-left:22px;}
+  #markdown-body li{margin-bottom:6px;}
+  #markdown-body strong{color:var(--slate-900);font-weight:700;}
+  #markdown-body code{
+    background:var(--blue-50);
+    color:var(--blue-600);
+    padding:2px 6px;
+    border-radius:4px;
+    font-size:0.9em;
+  }
+  #markdown-body blockquote{
+    margin:0 0 16px;
+    padding:10px 16px;
+    border-left:3px solid var(--blue-500);
+    background:var(--blue-50);
+    color:var(--slate-700);
+    border-radius:0 6px 6px 0;
+  }
+  #markdown-body a{color:var(--blue-600);text-decoration:underline;text-underline-offset:2px;}
+  #markdown-body hr{border:none;border-top:1px solid var(--slate-200);margin:24px 0;}
+  #markdown-body table{width:100%;border-collapse:collapse;margin:0 0 16px;font-size:14.5px;}
+  #markdown-body th,#markdown-body td{border:1px solid var(--slate-200);padding:8px 10px;text-align:left;}
+  #markdown-body th{background:var(--slate-100);font-weight:700;color:var(--slate-900);}
+
+  .state-msg{
+    padding:40px;
+    text-align:center;
+    color:var(--slate-500);
+    font-size:14.5px;
+  }
+
+  /* ---------- Overlay for mobile sidebar ---------- */
+  .overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(15,23,42,0.45);
+    z-index:15;
+  }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width:860px){
+    .topbar{display:flex;}
+    .sidebar{
+      position:fixed;
+      left:0;
+      top:0;
+      z-index:25;
+      transform:translateX(-100%);
+      transition:transform .25s ease;
+      width:280px;
+      box-shadow:8px 0 24px rgba(0,0,0,0.15);
+    }
+    .sidebar.open{transform:translateX(0);}
+    .overlay.show{display:block;}
+    .main{padding:28px 16px 64px;}
+    #markdown-body{padding:24px 20px;}
+  }
+
+  :focus-visible{
+    outline:2px solid var(--blue-600);
+    outline-offset:2px;
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<div class="overlay" id="overlay"></div>
+
+<div class="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="brand">
+        <div class="brand-mark">GK</div>
+        <div class="brand-text">
+          <h1>GK Parchi</h1>
+          <p>Daily current affairs, exam-ready</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="archive-label">Archive</div>
+    <ul class="archive-list" id="archive-list">
+      <li class="state-msg" style="color:#64748b;padding:12px 8px;">Loading dates…</li>
+    </ul>
+
+    <div class="sidebar-footer">Built for SSC CGL &amp; Railway aspirants</div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-wrap" style="flex:1;min-width:0;display:flex;flex-direction:column;">
+    <div class="topbar">
+      <button class="hamburger" id="hamburger" aria-label="Open archive menu"><span></span></button>
+      <div class="topbar-title">GK Parchi</div>
+    </div>
+
+    <main class="main">
+      <div class="content-card">
+        <div class="content-eyebrow">
+          <span class="eyebrow-dot"></span>
+          <span class="eyebrow-text" id="content-eyebrow">Today's Parchi</span>
+        </div>
+        <h2 id="content-title">Loading…</h2>
+        <div id="markdown-body">
+          <div class="state-msg">Fetching latest current affairs…</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- Config ----
+  // latest.json should look like:
+  // [
+  //   { "date": "2026-07-04", "title": "4 July 2026", "file": "data/2026-07-04.md" },
+  //   { "date": "2026-07-03", "title": "3 July 2026", "file": "data/2026-07-03.md" }
+  // ]
+  // Sorted newest first. The first entry is treated as "today's" parchi.
+  const DATA_INDEX_URL = "data/latest.json";
+
+  const archiveListEl = document.getElementById("archive-list");
+  const markdownBodyEl = document.getElementById("markdown-body");
+  const contentTitleEl = document.getElementById("content-title");
+  const contentEyebrowEl = document.getElementById("content-eyebrow");
+  const sidebarEl = document.getElementById("sidebar");
+  const overlayEl = document.getElementById("overlay");
+  const hamburgerEl = document.getElementById("hamburger");
+
+  let entries = [];
+  let activeFile = null;
+
+  function openSidebar() {
+    sidebarEl.classList.add("open");
+    overlayEl.classList.add("show");
+  }
+  function closeSidebar() {
+    sidebarEl.classList.remove("open");
+    overlayEl.classList.remove("show");
+  }
+  hamburgerEl.addEventListener("click", openSidebar);
+  overlayEl.addEventListener("click", closeSidebar);
+
+  function formatDateLabel(dateStr) {
+    try {
+      const d = new Date(dateStr + "T00:00:00");
+      return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    } catch (e) {
+      return dateStr;
+    }
+  }
+
+  function renderArchiveList() {
+    archiveListEl.innerHTML = "";
+    entries.forEach((entry, i) => {
+      const li = document.createElement("li");
+      li.className = "parchi-item" + (entry.file === activeFile ? " active" : "");
+      li.setAttribute("role", "button");
+      li.setAttribute("tabindex", "0");
+
+      const dateDiv = document.createElement("div");
+      dateDiv.className = "parchi-date";
+      dateDiv.textContent = entry.title || formatDateLabel(entry.date);
+
+      const tagDiv = document.createElement("div");
+      tagDiv.className = "parchi-tag";
+      tagDiv.textContent = i === 0 ? "Latest" : formatDateLabel(entry.date);
+
+      li.appendChild(dateDiv);
+      li.appendChild(tagDiv);
+
+      const activate = () => loadEntry(entry);
+      li.addEventListener("click", activate);
+      li.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activate(); }
+      });
+
+      archiveListEl.appendChild(li);
+    });
+  }
+
+  async function loadEntry(entry) {
+    activeFile = entry.file;
+    contentEyebrowEl.textContent = entries[0] && entries[0].file === entry.file ? "Today's Parchi" : "Archive";
+    contentTitleEl.textContent = entry.title || formatDateLabel(entry.date);
+    markdownBodyEl.innerHTML = '<div class="state-msg">Loading content…</div>';
+    renderArchiveList();
+    closeSidebar();
+
+    try {
+      const res = await fetch(entry.file, { cache: "no-cache" });
+      if (!res.ok) throw new Error("File not found: " + entry.file);
+      const mdText = await res.text();
+      markdownBodyEl.innerHTML = marked.parse(mdText);
+    } catch (err) {
+      markdownBodyEl.innerHTML =
+        '<div class="state-msg">Couldn\'t load this parchi. Please check that <code>' +
+        entry.file + "</code> exists.</div>";
+      console.error(err);
+    }
+  }
+
+  async function init() {
+    try {
+      const res = await fetch(DATA_INDEX_URL, { cache: "no-cache" });
+      if (!res.ok) throw new Error("Could not load latest.json");
+      const data = await res.json();
+      entries = Array.isArray(data) ? data : [];
+
+      if (entries.length === 0) {
+        archiveListEl.innerHTML = '<li class="state-msg" style="color:#64748b;padding:12px 8px;">No entries yet.</li>';
+        markdownBodyEl.innerHTML = '<div class="state-msg">No current affairs entries found.</div>';
+        return;
+      }
+
+      renderArchiveList();
+      loadEntry(entries[0]); // auto-load latest on landing
+    } catch (err) {
+      archiveListEl.innerHTML = '<li class="state-msg" style="color:#64748b;padding:12px 8px;">Could not load archive.</li>';
+      markdownBodyEl.innerHTML =
+        '<div class="state-msg">Could not load <code>data/latest.json</code>. Make sure the file exists next to index.html.</div>';
+      console.error(err);
+    }
+  }
+
+  init();
+})();
+</script>
+
+</body>
+</html>

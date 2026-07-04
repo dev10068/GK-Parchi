@@ -15,6 +15,7 @@ if not GNEWS_API_KEY or not GEMINI_API_KEY:
 RSS_FEEDS = {
     "The Hindu": "https://www.thehindu.com/news/national/feeder/default.rss",
     "NDTV Hindi": "https://feeds.feedburner.com/ndtv/ndtvkhabar",
+    "PIB": "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=1",
 }
 
 OUTPUT_DIR = "affairs"
@@ -101,7 +102,10 @@ def get_ai_summary(news_items):
     )
     prompt = (
         "Create a daily current affairs digest for Indian competitive exams. "
-        "Group into: Schemes, Sports, Appointments, Science. Exclude politics/crime. "
+        "Group into these categories, in this order: PIB & Government Schemes, Sports, "
+        "Appointments, Science. Under 'PIB & Government Schemes', prioritize official "
+        "government announcements, new scheme launches, policy updates, and ministry "
+        "initiatives. Exclude politics/crime. "
         "Use bilingual format (Hindi first / English translation). Keep it concise.\n\n"
         f"News:\n{raw_text}"
     )

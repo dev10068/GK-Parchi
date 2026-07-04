@@ -1,3 +1,4 @@
+
 import os
 import sys
 import json
@@ -106,7 +107,14 @@ def get_ai_summary(news_items):
         "Appointments, Science. Under 'PIB & Government Schemes', prioritize official "
         "government announcements, new scheme launches, policy updates, and ministry "
         "initiatives. Exclude politics/crime. "
-        "Use bilingual format (Hindi first / English translation). Keep it concise.\n\n"
+        "IMPORTANT: Include every distinct news item from the list below under its "
+        "relevant category — do not skip, shorten the list, or pick only one headline "
+        "per topic. Only merge two items together if they clearly describe the exact "
+        "same event (e.g. the same appointment or the same scheme reported by two "
+        "sources) — different events must stay as separate points even if from the "
+        "same broad topic. It is fine and expected for a category to have many points. "
+        "Use bilingual format (Hindi first / English translation). Keep each point "
+        "concise, but do not drop items for the sake of brevity.\n\n"
         f"News:\n{raw_text}"
     )
 

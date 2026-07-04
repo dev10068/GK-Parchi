@@ -75,8 +75,8 @@ RAW NEWS:
 {raw_text}"""
 
 def get_ai_summary(news_items):
-    # ब्रह्मास्त्र: बिना पैकेज के सीधा गूगल के सर्वर से बात करना
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+    # डायरेक्ट गूगल सर्वर से कनेक्शन (gemini-pro)
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GEMINI_API_KEY}"
     prompt = build_prompt(news_items)
     
     payload = {

@@ -132,11 +132,9 @@ def get_ai_summary(news_items):
     client = genai.Client(api_key=GEMINI_API_KEY)
     prompt = build_prompt(news_items)
 
-    # "gemini-flash-latest" is a Google-maintained alias that always points to
-    # the current stable Flash model. This avoids hardcoding a model name that
-    # Google can deprecate later (which is what caused your last 404).
+    # मॉडल का नाम बदलकर gemini-pro कर दिया है ताकि 404 एरर ना आए
     response = client.models.generate_content(
-        model="gemini-1.5-flash",
+        model="gemini-pro",
         contents=prompt,
     )
     return response.text.strip()

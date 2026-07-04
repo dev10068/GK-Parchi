@@ -14,6 +14,15 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
+<!-- Set theme before paint, to avoid a light-mode flash -->
+<script>
+  (function () {
+    const saved = localStorage.getItem("gkp-theme");
+    const theme = saved || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+</script>
+
 <style>
   :root{
     --slate-950:#0b1220;
@@ -28,18 +37,49 @@
     --blue-600:#2563eb;
     --blue-500:#3b82f6;
     --blue-50:#eff6ff;
-    --paper:#fffdf8;
     --radius:10px;
     --sidebar-w:300px;
+
+    /* ---- Theme-aware tokens (light defaults) ---- */
+    --page-bg:var(--slate-50);
+    --page-text:var(--slate-800);
+    --card-bg:#fffdf8;
+    --card-border:var(--slate-200);
+    --heading-color:var(--slate-900);
+    --topbar-bg:var(--slate-50);
+    --code-bg:var(--blue-50);
+    --code-text:var(--blue-600);
+    --blockquote-bg:var(--blue-50);
+    --table-header-bg:var(--slate-100);
+    --hamburger-bg:#fff;
+    --hamburger-border:var(--slate-200);
+    --hamburger-bar:var(--slate-800);
+  }
+
+  :root[data-theme="dark"]{
+    --page-bg:#0b1220;
+    --page-text:#cbd5e1;
+    --card-bg:#111c2e;
+    --card-border:#24334a;
+    --heading-color:#f1f5f9;
+    --topbar-bg:#0b1220;
+    --code-bg:rgba(59,130,246,0.16);
+    --code-text:#7cb0ff;
+    --blockquote-bg:rgba(59,130,246,0.12);
+    --table-header-bg:#16223a;
+    --hamburger-bg:#111c2e;
+    --hamburger-border:#24334a;
+    --hamburger-bar:#e2e8f0;
   }
 
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
     font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
-    background:var(--slate-50);
-    color:var(--slate-800);
+    background:var(--page-bg);
+    color:var(--page-text);
     -webkit-font-smoothing:antialiased;
+    transition:background .2s ease, color .2s ease;
   }
 
   a{color:inherit;}
@@ -50,7 +90,7 @@
     min-height:100vh;
   }
 
-  /* ---------- Sidebar ---------- */
+  /* ---------- Sidebar (stays dark navy in both themes) ---------- */
   .sidebar{
     width:var(--sidebar-w);
     flex-shrink:0;
@@ -87,7 +127,6 @@
     font-size:15px;
     color:#fff;
     flex-shrink:0;
-    /* torn-edge notch, echoes a slip of paper */
     clip-path:polygon(0 6%,50% 0,100% 6%,100% 94%,50% 100%,0 94%);
   }
 
@@ -126,7 +165,6 @@
   .archive-list::-webkit-scrollbar{width:6px;}
   .archive-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:10px;}
 
-  /* Each archive entry styled like a small torn "parchi" slip */
   .parchi-item{
     position:relative;
     margin:6px 0;
@@ -197,16 +235,16 @@
     align-items:center;
     gap:12px;
     padding:14px 16px;
-    background:var(--slate-50);
-    border-bottom:1px solid var(--slate-200);
+    background:var(--topbar-bg);
+    border-bottom:1px solid var(--card-border);
   }
 
-  .hamburger{
+  .icon-btn{
     width:38px;
     height:38px;
     border-radius:8px;
-    border:1px solid var(--slate-200);
-    background:#fff;
+    border:1px solid var(--hamburger-border);
+    background:var(--hamburger-bg);
     display:flex;
     align-items:center;
     justify-content:center;
@@ -218,7 +256,7 @@
     display:block;
     width:16px;
     height:2px;
-    background:var(--slate-800);
+    background:var(--hamburger-bar);
     position:relative;
   }
   .hamburger span::before,.hamburger span::after{
@@ -227,7 +265,7 @@
     left:0;
     width:16px;
     height:2px;
-    background:var(--slate-800);
+    background:var(--hamburger-bar);
   }
   .hamburger span::before{top:-5px;}
   .hamburger span::after{top:5px;}
@@ -236,8 +274,48 @@
     font-family:'Manrope',sans-serif;
     font-weight:800;
     font-size:15px;
-    color:var(--slate-900);
+    color:var(--heading-color);
   }
+
+  .topbar-spacer{ flex:1; }
+
+  /* ---------- Theme toggle button ---------- */
+  .theme-toggle{
+    position:relative;
+    width:38px;
+    height:38px;
+    flex-shrink:0;
+  }
+  .theme-toggle svg{
+    width:18px;
+    height:18px;
+    stroke:var(--hamburger-bar);
+    fill:none;
+    stroke-width:2;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+  }
+  .theme-toggle .icon-sun{ display:none; }
+  .theme-toggle .icon-moon{ display:block; }
+  :root[data-theme="dark"] .theme-toggle .icon-sun{ display:block; }
+  :root[data-theme="dark"] .theme-toggle .icon-moon{ display:none; }
+
+  /* Desktop toggle sits in the sidebar footer */
+  .sidebar-footer{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .sidebar-footer .theme-toggle{
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:8px;
+    background:rgba(255,255,255,0.04);
+  }
+  .sidebar-footer .theme-toggle svg{ stroke:var(--slate-300); }
+
+  /* Mobile topbar toggle, hidden on desktop (sidebar footer one is used instead) */
+  .topbar .theme-toggle{ display:none; }
 
   /* ---------- Main content ---------- */
   .main{
@@ -277,39 +355,39 @@
     font-family:'Manrope',sans-serif;
     font-size:clamp(22px,3vw,30px);
     font-weight:800;
-    color:var(--slate-900);
+    color:var(--heading-color);
     margin:0 0 28px;
     line-height:1.25;
   }
 
   /* Markdown body */
   #markdown-body{
-    background:var(--paper);
-    border:1px solid var(--slate-200);
+    background:var(--card-bg);
+    border:1px solid var(--card-border);
     border-radius:var(--radius);
     padding:36px 40px;
     line-height:1.75;
     font-size:15.5px;
-    color:var(--slate-700);
+    color:var(--page-text);
   }
 
   #markdown-body h1,#markdown-body h2,#markdown-body h3{
     font-family:'Manrope',sans-serif;
-    color:var(--slate-900);
+    color:var(--heading-color);
     font-weight:700;
     line-height:1.35;
   }
   #markdown-body h1{font-size:22px;margin:0 0 14px;}
-  #markdown-body h2{font-size:18.5px;margin:28px 0 12px;padding-top:14px;border-top:1px solid var(--slate-100);}
+  #markdown-body h2{font-size:18.5px;margin:28px 0 12px;padding-top:14px;border-top:1px solid var(--card-border);}
   #markdown-body h2:first-child{border-top:none;padding-top:0;margin-top:0;}
   #markdown-body h3{font-size:16px;margin:20px 0 8px;}
   #markdown-body p{margin:0 0 14px;}
   #markdown-body ul,#markdown-body ol{margin:0 0 16px;padding-left:22px;}
   #markdown-body li{margin-bottom:6px;}
-  #markdown-body strong{color:var(--slate-900);font-weight:700;}
+  #markdown-body strong{color:var(--heading-color);font-weight:700;}
   #markdown-body code{
-    background:var(--blue-50);
-    color:var(--blue-600);
+    background:var(--code-bg);
+    color:var(--code-text);
     padding:2px 6px;
     border-radius:4px;
     font-size:0.9em;
@@ -318,15 +396,15 @@
     margin:0 0 16px;
     padding:10px 16px;
     border-left:3px solid var(--blue-500);
-    background:var(--blue-50);
-    color:var(--slate-700);
+    background:var(--blockquote-bg);
+    color:var(--page-text);
     border-radius:0 6px 6px 0;
   }
   #markdown-body a{color:var(--blue-600);text-decoration:underline;text-underline-offset:2px;}
-  #markdown-body hr{border:none;border-top:1px solid var(--slate-200);margin:24px 0;}
+  #markdown-body hr{border:none;border-top:1px solid var(--card-border);margin:24px 0;}
   #markdown-body table{width:100%;border-collapse:collapse;margin:0 0 16px;font-size:14.5px;}
-  #markdown-body th,#markdown-body td{border:1px solid var(--slate-200);padding:8px 10px;text-align:left;}
-  #markdown-body th{background:var(--slate-100);font-weight:700;color:var(--slate-900);}
+  #markdown-body th,#markdown-body td{border:1px solid var(--card-border);padding:8px 10px;text-align:left;}
+  #markdown-body th{background:var(--table-header-bg);font-weight:700;color:var(--heading-color);}
 
   .state-msg{
     padding:40px;
@@ -347,6 +425,8 @@
   /* ---------- Responsive ---------- */
   @media (max-width:860px){
     .topbar{display:flex;}
+    .topbar .theme-toggle{ display:flex; }
+    .sidebar-footer .theme-toggle{ display:none; }
     .sidebar{
       position:fixed;
       left:0;
@@ -396,14 +476,25 @@
       <li class="state-msg" style="color:#64748b;padding:12px 8px;">Loading dates…</li>
     </ul>
 
-    <div class="sidebar-footer">Built for SSC CGL &amp; Railway aspirants</div>
+    <div class="sidebar-footer">
+      <span>Built for SSC CGL &amp; Railway aspirants</span>
+      <button class="icon-btn theme-toggle" id="theme-toggle-desktop" aria-label="Toggle dark mode">
+        <svg class="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+      </button>
+    </div>
   </aside>
 
   <!-- Main -->
   <div class="main-wrap" style="flex:1;min-width:0;display:flex;flex-direction:column;">
     <div class="topbar">
-      <button class="hamburger" id="hamburger" aria-label="Open archive menu"><span></span></button>
+      <button class="icon-btn hamburger" id="hamburger" aria-label="Open archive menu"><span></span></button>
       <div class="topbar-title">GK Parchi</div>
+      <div class="topbar-spacer"></div>
+      <button class="icon-btn theme-toggle" id="theme-toggle-mobile" aria-label="Toggle dark mode">
+        <svg class="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+      </button>
     </div>
 
     <main class="main">
@@ -425,6 +516,18 @@
 <script>
 (function () {
   "use strict";
+
+  // ---- Dark mode toggle ----
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("gkp-theme", theme);
+  }
+  function toggleTheme() {
+    const current = document.documentElement.getAttribute("data-theme") || "light";
+    applyTheme(current === "dark" ? "light" : "dark");
+  }
+  document.getElementById("theme-toggle-desktop").addEventListener("click", toggleTheme);
+  document.getElementById("theme-toggle-mobile").addEventListener("click", toggleTheme);
 
   // ---- Config ----
   // main.py writes affairs/latest.json in this shape:
@@ -518,8 +621,6 @@
       if (!res.ok) throw new Error("Could not load latest.json");
       const data = await res.json();
 
-      // Build entries list: latest file first, then the rest of the archive
-      // (skip duplicate if latest_file already appears in archive).
       entries = Array.isArray(data.archive) ? [...data.archive] : [];
       if (data.latest_file && !entries.some(e => e.file === data.latest_file)) {
         entries.unshift({ date: data.latest_date, file: data.latest_file });

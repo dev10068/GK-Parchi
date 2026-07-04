@@ -4,7 +4,6 @@ import json
 import datetime
 import requests
 import feedparser
-import google.generativeai as genai
 
 GNEWS_API_KEY = os.environ.get("GNEWS_API_KEY")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
@@ -76,12 +75,26 @@ RAW NEWS:
 {raw_text}"""
 
 def get_ai_summary(news_items):
-    # यह रहा सही पैकेज और सही मॉडल (gemini-pro)
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-pro')
+    # ब्रह्मास्त्र: बिना पैकेज के सीधा गूगल के सर्वर से बात करना
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
     prompt = build_prompt(news_items)
-    response = model.generate_content(prompt)
-    return response.text.strip()
+    
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}]
+    }
+    
+    try:
+        resp = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
+        resp.raise_for_status()
+        data = resp.json()
+        return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+    except requests.exceptions.HTTPError as e:
+        print(f"Gemini API ERROR (Direct): {resp.status_code}")
+        print(resp.text)  # अगर अब भी फेल हुआ, तो गूगल खुद बताएगा कि वो ऐसा क्यों कर रहा है!
+        sys.exit(1)
+    except Exception as e:
+        print(f"Connection Error: {e}")
+        sys.exit(1)
 
 def save_output(summary_text):
     today = datetime.datetime.now()

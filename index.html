@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="hi" class="">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GK Parchi - Current Affairs</title>
+    
+    <!-- असली इलाज: सही Tailwind CSS लिंक -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: '#2563eb', // प्रॉपर ब्लू कलर
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* मूवी टिकट के साइड वाले गोल कटआउट्स (Cutouts) का जादू */
+        .cutout-left, .cutout-right {
+            position: absolute;
+            top: -12px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            z-index: 10;
+        }
+        .cutout-left { left: -12px; }
+        .cutout-right { right: -12px; }
+    </style>
+</head>
+<!-- लाइट मोड और डार्क मोड के बैकग्राउंड कलर्स -->
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-300 font-sans">
+    
+    <!-- नेविगेशन बार (Header) -->
+    <nav class="sticky top-0 z-50 backdrop-blur-md bg-white/80 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 shadow-sm">
+        <div class="max-w-md mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="text-xl font-black text-blue-600 dark:text-blue-400 tracking-wide">GK Parchi</div>
+            <div class="flex space-x-3 items-center">
+                <!-- भाषा बदलने का बटन -->
+                <button id="langToggle" class="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full text-sm font-bold shadow-sm transition-transform active:scale-95">🌐 EN</button>
+                <!-- डार्क मोड का बटन -->
+                <button id="themeToggle" class="text-xl p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-transform active:scale-95">🌙</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-md mx-auto px-4 py-8 min-h-screen">
+        <!-- Daily / Weekly / Monthly टैब्स -->
+        <div class="flex justify-center mb-10">
+            <div class="bg-slate-200 dark:bg-slate-800 rounded-full p-1 flex shadow-inner">
+                <button class="px-5 py-2 bg-blue-600 text-white rounded-full text-sm font-bold shadow-md" data-hi="दैनिक (Daily)" data-en="Daily">दैनिक (Daily)</button>
+                <button class="px-5 py-2 text-slate-500 dark:text-slate-400 text-sm font-bold" data-hi="साप्ताहिक (Weekly)" data-en="Weekly">साप्ताहिक (Weekly)</button>
+                <button class="px-5 py-2 text-slate-500 dark:text-slate-400 text-sm font-bold" data-hi="मासिक (Monthly)" data-en="Monthly">मासिक (Monthly)</button>
+            </div>
+        </div>
+
+        <!-- मूवी टिकट स्टाइल कार्ड (Movie Ticket UI) -->
+        <div class="relative bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden">
+            
+            <!-- टिकट का ऊपरी हिस्सा -->
+            <div class="p-6 pb-8">
+                <span class="inline-block px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs font-black rounded-full mb-4">EDITION #185</span>
+                <h2 class="text-3xl font-extrabold mb-3 leading-tight" data-hi="आज का करंट अफेयर्स" data-en="Today's Current Affairs">आज का करंट अफेयर्स</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 font-medium" data-hi="स्रोत (Sources): GNews · The Hindu · NDTV" data-en="Sources: GNews · The Hindu · NDTV">स्रोत (Sources): GNews · The Hindu · NDTV</p>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-2 font-medium" data-hi="दिनांक (Date): 04 July 2026" data-en="Date: 04 July 2026">दिनांक (Date): 04 July 2026</p>
+            </div>
+
+            <!-- टिकट के बीच की फटने वाली (Dashed) लाइन और गोल कटआउट -->
+            <div class="relative w-full border-t-2 border-dashed border-slate-300 dark:border-slate-600">
+                <div class="cutout-left bg-slate-50 dark:bg-slate-900 border-r-2 border-slate-300 dark:border-slate-600"></div>
+                <div class="cutout-right bg-slate-50 dark:bg-slate-900 border-l-2 border-slate-300 dark:border-slate-600"></div>
+            </div>
+
+            <!-- टिकट का निचला हिस्सा (Action Area) -->
+            <div class="p-6 pt-8 bg-blue-50/30 dark:bg-slate-800/50">
+                <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-blue-600/30 transition-all active:scale-95 flex justify-center items-center gap-2">
+                    <span class="text-xl">⬇️</span> 
+                    <span data-hi="पीडीएफ डाउनलोड करें (Download PDF)" data-en="Download PDF">पीडीएफ डाउनलोड करें (Download PDF)</span>
+                </button>
+                <div class="text-center mt-4">
+                    <a href="#" class="text-sm text-blue-600 dark:text-blue-400 hover:underline font-semibold" data-hi=".md फाइल डाउनलोड करें (Download .md)" data-en="Download .md File">.md फाइल डाउनलोड करें (Download .md)</a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- तुम्हारा डेवलपर टैग -->
+    <footer class="py-8 text-center text-slate-400 dark:text-slate-500 text-sm font-bold tracking-wide">
+        Developed by Dev 💻
+    </footer>
+
+    <!-- सारा जादू यहाँ है (Dark Mode + Language Toggle) -->
+    <script>
+        // 1. Dark Mode Logic
+        const themeBtn = document.getElementById('themeToggle');
+        const htmlTag = document.documentElement;
+        
+        themeBtn.addEventListener('click', () => {
+            htmlTag.classList.toggle('dark');
+            themeBtn.textContent = htmlTag.classList.contains('dark') ? '☀️' : '🌙';
+        });
+
+        // 2. Language Switch Logic (बिना पेज रीलोड किए)
+        let isEnglish = false;
+        const langBtn = document.getElementById('langToggle');
+        // जिन भी चीजों में data-hi और data-en लगा है, उन सबको पकड़ो
+        const langElements = document.querySelectorAll('[data-hi], [data-en]');
+
+        langBtn.addEventListener('click', () => {
+            isEnglish = !isEnglish;
+            langBtn.textContent = isEnglish ? '🌐 HI' : '🌐 EN';
+            
+            langElements.forEach(el => {
+                if (isEnglish) {
+                    el.textContent = el.getAttribute('data-en');
+                } else {
+                    el.textContent = el.getAttribute('data-hi');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

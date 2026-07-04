@@ -175,7 +175,16 @@ def save_output(summary_text):
 
 
 def main():
-    items = fetch_gnews() + fetch_rss()
+    gnews_items = fetch_gnews()
+    rss_items = fetch_rss()
+    items = gnews_items + rss_items
+
+    print(f"GNews items fetched: {len(gnews_items)}")
+    print(f"RSS items fetched: {len(rss_items)}")
+    print(f"Total items fetched: {len(items)}")
+    for i, item in enumerate(items):
+        print(f"  [{i+1}] ({item['source']}) {item['title'][:80]}")
+
     if not items:
         print("No news fetched.")
         sys.exit(1)

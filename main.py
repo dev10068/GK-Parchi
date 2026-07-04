@@ -76,9 +76,9 @@ RAW NEWS:
 {raw_text}"""
 
 def get_ai_summary(news_items):
-    # यह क्लासिक और स्टेबल तरीका है जो तुम्हारी चाबी के साथ 100% काम करेगा
+    # यह रहा सही पैकेज और सही मॉडल (gemini-pro)
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-pro')
     prompt = build_prompt(news_items)
     response = model.generate_content(prompt)
     return response.text.strip()

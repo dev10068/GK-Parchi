@@ -427,13 +427,18 @@
   "use strict";
 
   // ---- Config ----
-  // latest.json should look like:
-  // [
-  //   { "date": "2026-07-04", "title": "4 July 2026", "file": "data/2026-07-04.md" },
-  //   { "date": "2026-07-03", "title": "3 July 2026", "file": "data/2026-07-03.md" }
-  // ]
-  // Sorted newest first. The first entry is treated as "today's" parchi.
-  const DATA_INDEX_URL = "data/latest.json";
+  // main.py writes affairs/latest.json in this shape:
+  // {
+  //   "latest_date": "04-07-2026",
+  //   "latest_file": "Current_Affairs_04-07-2026.md",
+  //   "archive": [
+  //     { "date": "04-07-2026", "file": "Current_Affairs_04-07-2026.md" },
+  //     ...
+  //   ]
+  // }
+  // Files themselves live inside the affairs/ folder.
+  const DATA_INDEX_URL = "affairs/latest.json";
+  const FILES_BASE = "affairs/";
 
   const archiveListEl = document.getElementById("archive-list");
   const markdownBodyEl = document.getElementById("markdown-body");
@@ -457,15 +462,6 @@
   hamburgerEl.addEventListener("click", openSidebar);
   overlayEl.addEventListener("click", closeSidebar);
 
-  function formatDateLabel(dateStr) {
-    try {
-      const d = new Date(dateStr + "T00:00:00");
-      return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-    } catch (e) {
-      return dateStr;
-    }
-  }
-
   function renderArchiveList() {
     archiveListEl.innerHTML = "";
     entries.forEach((entry, i) => {
@@ -476,16 +472,16 @@
 
       const dateDiv = document.createElement("div");
       dateDiv.className = "parchi-date";
-      dateDiv.textContent = entry.title || formatDateLabel(entry.date);
+      dateDiv.textContent = entry.date;
 
       const tagDiv = document.createElement("div");
       tagDiv.className = "parchi-tag";
-      tagDiv.textContent = i === 0 ? "Latest" : formatDateLabel(entry.date);
+      tagDiv.textContent = i === 0 ? "Latest" : entry.date;
 
       li.appendChild(dateDiv);
       li.appendChild(tagDiv);
 
-      const activate = () => loadEntry(entry);
+      const activate = () => loadEntry(entry, i === 0);
       li.addEventListener("click", activate);
       li.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); activate(); }
@@ -495,23 +491,23 @@
     });
   }
 
-  async function loadEntry(entry) {
+  async function loadEntry(entry, isLatest) {
     activeFile = entry.file;
-    contentEyebrowEl.textContent = entries[0] && entries[0].file === entry.file ? "Today's Parchi" : "Archive";
-    contentTitleEl.textContent = entry.title || formatDateLabel(entry.date);
+    contentEyebrowEl.textContent = isLatest ? "Today's Parchi" : "Archive";
+    contentTitleEl.textContent = entry.date;
     markdownBodyEl.innerHTML = '<div class="state-msg">Loading content…</div>';
     renderArchiveList();
     closeSidebar();
 
     try {
-      const res = await fetch(entry.file, { cache: "no-cache" });
+      const res = await fetch(FILES_BASE + entry.file, { cache: "no-cache" });
       if (!res.ok) throw new Error("File not found: " + entry.file);
       const mdText = await res.text();
       markdownBodyEl.innerHTML = marked.parse(mdText);
     } catch (err) {
       markdownBodyEl.innerHTML =
         '<div class="state-msg">Couldn\'t load this parchi. Please check that <code>' +
-        entry.file + "</code> exists.</div>";
+        FILES_BASE + entry.file + "</code> exists.</div>";
       console.error(err);
     }
   }
@@ -521,7 +517,13 @@
       const res = await fetch(DATA_INDEX_URL, { cache: "no-cache" });
       if (!res.ok) throw new Error("Could not load latest.json");
       const data = await res.json();
-      entries = Array.isArray(data) ? data : [];
+
+      // Build entries list: latest file first, then the rest of the archive
+      // (skip duplicate if latest_file already appears in archive).
+      entries = Array.isArray(data.archive) ? [...data.archive] : [];
+      if (data.latest_file && !entries.some(e => e.file === data.latest_file)) {
+        entries.unshift({ date: data.latest_date, file: data.latest_file });
+      }
 
       if (entries.length === 0) {
         archiveListEl.innerHTML = '<li class="state-msg" style="color:#64748b;padding:12px 8px;">No entries yet.</li>';
@@ -530,11 +532,11 @@
       }
 
       renderArchiveList();
-      loadEntry(entries[0]); // auto-load latest on landing
+      loadEntry(entries[0], true); // auto-load latest on landing
     } catch (err) {
       archiveListEl.innerHTML = '<li class="state-msg" style="color:#64748b;padding:12px 8px;">Could not load archive.</li>';
       markdownBodyEl.innerHTML =
-        '<div class="state-msg">Could not load <code>data/latest.json</code>. Make sure the file exists next to index.html.</div>';
+        '<div class="state-msg">Could not load <code>affairs/latest.json</code>. Make sure the workflow has run at least once.</div>';
       console.error(err);
     }
   }
@@ -544,4 +546,4 @@
 </script>
 
 </body>
-</html> 
+</html>

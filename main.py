@@ -13,8 +13,8 @@ if not GNEWS_API_KEY or not GEMINI_API_KEY:
     sys.exit(1)
 
 RSS_FEEDS = {
-    "The Hindu (National)": "https://www.thehindu.com/news/national/feeder/default.rss",
-    "NDTV India (Hindi)": "https://feeds.feedburner.com/ndtv/ndtvkhabar",
+    "The Hindu": "https://www.thehindu.com/news/national/feeder/default.rss",
+    "NDTV Hindi": "https://feeds.feedburner.com/ndtv/ndtvkhabar",
 }
 
 OUTPUT_DIR = "affairs"
@@ -25,14 +25,13 @@ def fetch_gnews():
     items = []
     try:
         resp = requests.get(url, timeout=20)
-        resp.raise_for_status()
-        data = resp.json()
-        for article in data.get("articles", []):
-            items.append({
-                "source": f"GNews / {article.get('source', {}).get('name', 'Unknown')}",
-                "title": article.get("title", ""),
-                "description": article.get("description", ""),
-            })
+        if resp.status_code == 200:
+            for article in resp.json().get("articles", []):
+                items.append({
+                    "source": "GNews",
+                    "title": article.get("title", ""),
+                    "description": article.get("description", "")
+                })
     except Exception as e:
         print(f"GNews Error: {e}")
     return items
@@ -46,54 +45,29 @@ def fetch_rss():
                 items.append({
                     "source": name,
                     "title": entry.get("title", ""),
-                    "description": entry.get("summary", ""),
+                    "description": entry.get("summary", "")
                 })
         except Exception as e:
             print(f"RSS Error: {e}")
     return items
 
-def build_prompt(news_items):
-    raw_text = "\n\n".join(
-        f"Source: {item['source']}\nTitle: {item['title']}\nDetails: {item['description']}"
-        for item in news_items if item["title"]
-    )
-    return f"""You are creating a "Daily Current Affairs" digest for Indian students preparing for SSC, Railway (RRB), and one-day exams.
-From the raw news items below, select ONLY items relevant to exam preparation:
-- Government Schemes & Policies
-- Sports
-- Appointments & Awards
-- Science & Technology
-
-EXCLUDE: politics, crime, accidents.
-
-OUTPUT FORMAT:
-- Bulleted list.
-- Each bullet: the Hindi summary FIRST, immediately followed by the English translation on the same bullet, separated by " / ".
-- Group bullets under bold category headings: **योजनाएं / Schemes**, **खेल / Sports**, **नियुक्तियां / Appointments**, **विज्ञान / Science**.
-
-RAW NEWS:
-{raw_text}"""
-
 def get_ai_summary(news_items):
-    # डायरेक्ट गूगल सर्वर से कनेक्शन (gemini-pro)
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GEMINI_API_KEY}"
-    prompt = build_prompt(news_items)
+    raw_text = "\n\n".join(f"Title: {i['title']}\nDetails: {i['description']}" for i in news_items if i["title"])
+    prompt = f"Create a daily current affairs digest for Indian competitive exams. Group into: Schemes, Sports, Appointments, Science. Exclude politics/crime. Use bilingual format (Hindi first / English translation). Keep it concise.\n\nNews:\n{raw_text}"
     
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}]
-    }
+    # ब्रह्मास्त्र: डायरेक्ट Google REST API (बिना किसी पैकेज के)
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GEMINI_API_KEY}"
+    payload = {"contents": [{"parts": [{"text": prompt}]}]}
     
     try:
         resp = requests.post(url, json=payload, headers={"Content-Type": "application/json"})
         resp.raise_for_status()
         data = resp.json()
         return data["candidates"][0]["content"]["parts"][0]["text"].strip()
-    except requests.exceptions.HTTPError as e:
-        print(f"Gemini API ERROR (Direct): {resp.status_code}")
-        print(resp.text)
-        sys.exit(1)
     except Exception as e:
-        print(f"Connection Error: {e}")
+        print(f"API Error: {e}")
+        if 'resp' in locals():
+            print(resp.text)
         sys.exit(1)
 
 def save_output(summary_text):
@@ -102,11 +76,8 @@ def save_output(summary_text):
     filename = f"Current_Affairs_{date_str}.md"
     filepath = os.path.join(OUTPUT_DIR, filename)
 
-    display_date = today.strftime("%d %B %Y")
-    md_content = f"# GK Parchi — Daily Current Affairs — {display_date}\n\n{summary_text}\n"
-
     with open(filepath, "w", encoding="utf-8") as f:
-        f.write(md_content)
+        f.write(f"# GK Parchi — Daily Current Affairs — {today.strftime('%d %B %Y')}\n\n{summary_text}\n")
 
     manifest_path = os.path.join(OUTPUT_DIR, "latest.json")
     archive = []
@@ -117,27 +88,27 @@ def save_output(summary_text):
         except:
             pass
 
-    archive = [a for a in archive if a["file"] != filename]
+    archive = [a for a in archive if a.get("file") != filename]
     archive.insert(0, {"date": date_str, "file": filename})
-    archive = archive[:30]
-
-    manifest = {
-        "latest_date": date_str,
-        "latest_file": filename,
-        "latest_content": md_content,
-        "archive": archive,
-    }
+    
     with open(manifest_path, "w", encoding="utf-8") as f:
-        json.dump(manifest, f, ensure_ascii=False, indent=2)
+        json.dump({
+            "latest_date": date_str, 
+            "latest_file": filename, 
+            "archive": archive[:30]
+        }, f, indent=2)
     print(f"Saved: {filepath}")
 
 def main():
     items = fetch_gnews() + fetch_rss()
     if not items:
+        print("No news fetched.")
         sys.exit(1)
+    
     summary = get_ai_summary(items)
     if summary:
         save_output(summary)
+        print("Done successfully!")
 
 if __name__ == "__main__":
     main()

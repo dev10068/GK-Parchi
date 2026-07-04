@@ -90,7 +90,7 @@ def get_ai_summary(news_items):
         return data["candidates"][0]["content"]["parts"][0]["text"].strip()
     except requests.exceptions.HTTPError as e:
         print(f"Gemini API ERROR (Direct): {resp.status_code}")
-        print(resp.text)  # अगर अब भी फेल हुआ, तो गूगल खुद बताएगा कि वो ऐसा क्यों कर रहा है!
+        print(resp.text)
         sys.exit(1)
     except Exception as e:
         print(f"Connection Error: {e}")

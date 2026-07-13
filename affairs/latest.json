@@ -1,7 +1,11 @@
 {
-  "latest_date": "12-07-2026",
-  "latest_file": "Current_Affairs_12-07-2026.md",
+  "latest_date": "13-07-2026",
+  "latest_file": "Current_Affairs_13-07-2026.md",
   "archive": [
+    {
+      "date": "13-07-2026",
+      "file": "Current_Affairs_13-07-2026.md"
+    },
     {
       "date": "12-07-2026",
       "file": "Current_Affairs_12-07-2026.md"

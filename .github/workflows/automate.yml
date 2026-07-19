@@ -38,6 +38,12 @@ jobs:
             echo "No changes to commit."
           else
             git commit -m "Auto: daily current affairs update"
-            git pull --rebase origin main
+            git fetch origin main
+            # If this is a same-day re-run, an earlier run may have already
+            # committed a version of today's file. The freshly generated
+            # content is always authoritative (it's regenerated from
+            # scratch), so on conflict we keep this run's version rather
+            # than trying to reconcile the two.
+            git merge -X ours origin/main --no-edit -m "Merge: keep freshly generated affairs files"
             git push
           fi

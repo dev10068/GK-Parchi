@@ -356,8 +356,30 @@
     font-size:clamp(22px,3vw,30px);
     font-weight:800;
     color:var(--heading-color);
-    margin:0 0 28px;
+    margin:0 0 16px;
     line-height:1.25;
+  }
+
+  /* Quick-nav chips, built from the digest's own category headings */
+  .quick-nav{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:24px;
+  }
+  .quick-nav a{
+    font-size:12px;
+    font-weight:600;
+    padding:6px 12px;
+    border-radius:999px;
+    background:var(--code-bg);
+    color:var(--code-text);
+    text-decoration:none;
+    white-space:nowrap;
+    border:1px solid transparent;
+  }
+  .quick-nav a:hover{
+    border-color:var(--blue-500);
   }
 
   /* Markdown body */
@@ -378,7 +400,7 @@
     line-height:1.35;
   }
   #markdown-body h1{font-size:22px;margin:0 0 14px;}
-  #markdown-body h2{font-size:18.5px;margin:28px 0 12px;padding-top:14px;border-top:1px solid var(--card-border);}
+  #markdown-body h2{font-size:18.5px;margin:28px 0 12px;padding-top:14px;border-top:1px solid var(--card-border);scroll-margin-top:24px;}
   #markdown-body h2:first-child{border-top:none;padding-top:0;margin-top:0;}
   #markdown-body h3{font-size:16px;margin:20px 0 8px;}
   #markdown-body p{margin:0 0 14px;}
@@ -406,6 +428,23 @@
   #markdown-body th,#markdown-body td{border:1px solid var(--card-border);padding:8px 10px;text-align:left;}
   #markdown-body th{background:var(--table-header-bg);font-weight:700;color:var(--heading-color);}
 
+  /* Compact styling for the raw Top Headlines list — it can have 50-80
+     entries with no summarizing, so it needs a tighter, scannable look
+     rather than the same spacing as the detailed digest points. */
+  #markdown-body ol.headlines-list{
+    font-size:13.5px;
+    line-height:1.5;
+    padding-left:20px;
+  }
+  #markdown-body ol.headlines-list li{
+    margin-bottom:8px;
+  }
+  #markdown-body ol.headlines-list li em{
+    color:var(--slate-500);
+    font-style:normal;
+    font-size:12px;
+  }
+
   .state-msg{
     padding:40px;
     text-align:center;
@@ -420,6 +459,33 @@
     inset:0;
     background:rgba(15,23,42,0.45);
     z-index:15;
+  }
+
+  /* ---------- Back-to-top button ---------- */
+  .back-to-top{
+    position:fixed;
+    bottom:24px;
+    right:24px;
+    width:44px;
+    height:44px;
+    border-radius:50%;
+    background:var(--blue-600);
+    border:none;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    box-shadow:0 4px 14px rgba(0,0,0,0.25);
+    z-index:30;
+  }
+  .back-to-top.show{ display:flex; }
+  .back-to-top svg{
+    width:18px;height:18px;
+    stroke:#fff;
+    fill:none;
+    stroke-width:2.5;
+    stroke-linecap:round;
+    stroke-linejoin:round;
   }
 
   /* ---------- Responsive ---------- */
@@ -441,6 +507,7 @@
     .overlay.show{display:block;}
     .main{padding:28px 16px 64px;}
     #markdown-body{padding:24px 20px;}
+    .back-to-top{bottom:16px;right:16px;}
   }
 
   :focus-visible{
@@ -503,7 +570,8 @@
           <span class="eyebrow-dot"></span>
           <span class="eyebrow-text" id="content-eyebrow">Today's Parchi</span>
         </div>
-        <h2 id="content-title">Loading…</h2>
+        <h2 id="content-title" style="border:none;padding:0;">Loading…</h2>
+        <div class="quick-nav" id="quick-nav"></div>
         <div id="markdown-body">
           <div class="state-msg">Fetching latest current affairs…</div>
         </div>
@@ -512,6 +580,10 @@
   </div>
 
 </div>
+
+<button class="back-to-top" id="back-to-top" aria-label="Back to top">
+  <svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+</button>
 
 <script>
 (function () {
@@ -529,6 +601,16 @@
   document.getElementById("theme-toggle-desktop").addEventListener("click", toggleTheme);
   document.getElementById("theme-toggle-mobile").addEventListener("click", toggleTheme);
 
+  // ---- Back to top ----
+  const backToTopEl = document.getElementById("back-to-top");
+  window.addEventListener("scroll", () => {
+    if (window.scrollY > 400) backToTopEl.classList.add("show");
+    else backToTopEl.classList.remove("show");
+  });
+  backToTopEl.addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
   // ---- Config ----
   // main.py writes affairs/latest.json in this shape:
   // {
@@ -539,7 +621,10 @@
   //     ...
   //   ]
   // }
-  // Files themselves live inside the affairs/ folder.
+  // The digest markdown now ends with a "## Top Headlines" section (raw,
+  // undeduped-by-category headlines) — it renders automatically since it's
+  // just another h2 block, but we give it compact styling and a quick-nav
+  // chip below.
   const DATA_INDEX_URL = "affairs/latest.json";
   const FILES_BASE = "affairs/";
 
@@ -547,6 +632,7 @@
   const markdownBodyEl = document.getElementById("markdown-body");
   const contentTitleEl = document.getElementById("content-title");
   const contentEyebrowEl = document.getElementById("content-eyebrow");
+  const quickNavEl = document.getElementById("quick-nav");
   const sidebarEl = document.getElementById("sidebar");
   const overlayEl = document.getElementById("overlay");
   const hamburgerEl = document.getElementById("hamburger");
@@ -594,11 +680,41 @@
     });
   }
 
+  // Assigns anchor ids to each category heading, builds the quick-nav
+  // chip row from them, and tags the Top Headlines list for compact CSS.
+  function enhanceContent() {
+    const headings = markdownBodyEl.querySelectorAll("h2");
+    quickNavEl.innerHTML = "";
+
+    headings.forEach((h) => {
+      const text = h.textContent.trim();
+      const id = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      h.id = id;
+
+      const chip = document.createElement("a");
+      chip.href = "#" + id;
+      chip.textContent = text;
+      chip.addEventListener("click", (e) => {
+        e.preventDefault();
+        h.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      quickNavEl.appendChild(chip);
+
+      if (text === "Top Headlines") {
+        const nextEl = h.nextElementSibling;
+        if (nextEl && nextEl.tagName === "OL") {
+          nextEl.classList.add("headlines-list");
+        }
+      }
+    });
+  }
+
   async function loadEntry(entry, isLatest) {
     activeFile = entry.file;
     contentEyebrowEl.textContent = isLatest ? "Today's Parchi" : "Archive";
     contentTitleEl.textContent = entry.date;
     markdownBodyEl.innerHTML = '<div class="state-msg">Loading content…</div>';
+    quickNavEl.innerHTML = "";
     renderArchiveList();
     closeSidebar();
 
@@ -607,6 +723,7 @@
       if (!res.ok) throw new Error("File not found: " + entry.file);
       const mdText = await res.text();
       markdownBodyEl.innerHTML = marked.parse(mdText);
+      enhanceContent();
     } catch (err) {
       markdownBodyEl.innerHTML =
         '<div class="state-msg">Couldn\'t load this parchi. Please check that <code>' +

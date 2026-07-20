@@ -644,21 +644,64 @@ let currentUtterance = null;
 let isSpeaking = false;
 let selectedLang = 'hi-IN';   // default Hindi
 let selectedRate = 1;         // default speed
+let voiceKeepAlive = null;
 
 function speakText(text) {
-  window.speechSynthesis.cancel();
+  if (!('speechSynthesis' in window)) {
+    alert('Ye browser awaaz (text-to-speech) support nahi karta.');
+    return;
+  }
+  if (!text || !text.trim()) {
+    alert('Padhne ke liye content nahi mila. Pehle digest load hone do.');
+    return;
+  }
 
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = selectedLang;
-  utterance.rate = selectedRate;
-  utterance.pitch = 1;
+  try {
+    window.speechSynthesis.cancel();
+    if (voiceKeepAlive) { clearInterval(voiceKeepAlive); voiceKeepAlive = null; }
 
-  utterance.onstart = () => { isSpeaking = true; updateButton(); };
-  utterance.onend = () => { isSpeaking = false; updateButton(); };
-  utterance.onerror = () => { isSpeaking = false; updateButton(); };
+    // Small delay after cancel() avoids a known Chrome bug where speak()
+    // called immediately after cancel() is silently dropped.
+    setTimeout(() => {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = selectedLang;
+      utterance.rate = selectedRate;
+      utterance.pitch = 1;
 
-  currentUtterance = utterance;
-  window.speechSynthesis.speak(utterance);
+      utterance.onstart = () => {
+        isSpeaking = true;
+        updateButton();
+        // Chrome bug: long utterances silently stop after ~15s unless
+        // paused/resumed periodically. This keeps long digests playing.
+        voiceKeepAlive = setInterval(() => {
+          if (window.speechSynthesis.speaking) {
+            window.speechSynthesis.pause();
+            window.speechSynthesis.resume();
+          }
+        }, 10000);
+      };
+      utterance.onend = () => {
+        isSpeaking = false;
+        updateButton();
+        if (voiceKeepAlive) { clearInterval(voiceKeepAlive); voiceKeepAlive = null; }
+      };
+      utterance.onerror = (e) => {
+        console.error('Speech error:', e.error || e);
+        isSpeaking = false;
+        updateButton();
+        if (voiceKeepAlive) { clearInterval(voiceKeepAlive); voiceKeepAlive = null; }
+        if (e.error && e.error !== 'canceled' && e.error !== 'interrupted') {
+          alert('Awaaz chalane mein dikkat aayi: ' + e.error);
+        }
+      };
+
+      currentUtterance = utterance;
+      window.speechSynthesis.speak(utterance);
+    }, 50);
+  } catch (err) {
+    console.error('Voice error:', err);
+    alert('Awaaz chalane mein error aayi: ' + err.message);
+  }
 }
 
 function toggleVoice(text) {
@@ -666,6 +709,7 @@ function toggleVoice(text) {
     window.speechSynthesis.cancel();
     isSpeaking = false;
     updateButton();
+    if (voiceKeepAlive) { clearInterval(voiceKeepAlive); voiceKeepAlive = null; }
   } else {
     speakText(text);
   }

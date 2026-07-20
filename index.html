@@ -368,6 +368,11 @@
     gap:8px;
     margin-bottom:14px;
   }
+  .voice-controls-label{
+    font-size:12px;
+    color:var(--slate-500);
+    margin-right:2px;
+  }
   .voice-controls button{
     font-family:inherit;
     font-size:12.5px;
@@ -390,6 +395,31 @@
     color:var(--code-text);
     border:1px solid var(--card-border);
     cursor:pointer;
+  }
+
+  /* Small speaker icon next to each digest heading — reads just that
+     section instead of the whole (very long) digest at once. */
+  .section-voice-btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:26px;
+    height:26px;
+    margin-left:8px;
+    border-radius:50%;
+    border:1px solid var(--card-border);
+    background:var(--code-bg);
+    color:var(--code-text);
+    font-size:13px;
+    line-height:1;
+    cursor:pointer;
+    vertical-align:middle;
+  }
+  .section-voice-btn:hover{ border-color:var(--blue-500); }
+  .section-voice-btn.playing{
+    background:var(--blue-600);
+    color:#fff;
+    border-color:var(--blue-600);
   }
 
   /* Quick-nav chips, built from the digest's own category headings */
@@ -604,9 +634,7 @@
         </div>
         <h2 id="content-title" style="border:none;padding:0;">Loading…</h2>
         <div class="voice-controls">
-          <button id="voiceBtn" onclick="toggleVoice(document.getElementById('markdown-body').innerText)">
-            🔊 Sunein
-          </button>
+          <span class="voice-controls-label">🔊 Section-wise sunein — heading ke paas wale icon dabao</span>
 
           <!-- Language toggle -->
           <select onchange="setLanguage(this.value)">
@@ -639,102 +667,130 @@
 
 <script>
 // ---- Voice Mode Logic (Language + Speed) ----
+// Each heading gets its own 🔊 icon that reads just that section — nothing
+// loads/synthesizes until that specific icon is tapped. Long sections are
+// still chunked into sentence-sized pieces (mobile TTS engines throw
+// "synthesis-failed" on very long single utterances).
 
-let currentUtterance = null;
 let isSpeaking = false;
 let selectedLang = 'hi-IN';   // default Hindi
 let selectedRate = 1;         // default speed
-let voiceKeepAlive = null;
+let speechQueue = [];
+let queueIndex = 0;
+let manualStop = false;
+let activeIconBtn = null;
 
-function speakText(text) {
+const MAX_CHUNK_CHARS = 200;
+
+function chunkText(text) {
+  const sentences = text.split(/(?<=[।.?!])\s+/);
+  const chunks = [];
+  let current = "";
+  sentences.forEach((sentence) => {
+    if (!sentence.trim()) return;
+    if (current && (current + " " + sentence).length > MAX_CHUNK_CHARS) {
+      chunks.push(current.trim());
+      current = sentence;
+    } else {
+      current = current ? current + " " + sentence : sentence;
+    }
+  });
+  if (current.trim()) chunks.push(current.trim());
+  return chunks;
+}
+
+function setIconState(btn, playing) {
+  if (!btn) return;
+  btn.textContent = playing ? '⏸' : '🔊';
+  btn.classList.toggle('playing', playing);
+}
+
+function speakChunk() {
+  if (manualStop) return;
+
+  if (queueIndex >= speechQueue.length) {
+    isSpeaking = false;
+    setIconState(activeIconBtn, false);
+    activeIconBtn = null;
+    return;
+  }
+
+  const chunk = speechQueue[queueIndex];
+  const utterance = new SpeechSynthesisUtterance(chunk);
+  utterance.lang = selectedLang;
+  utterance.rate = selectedRate;
+  utterance.pitch = 1;
+
+  utterance.onstart = () => {
+    isSpeaking = true;
+    setIconState(activeIconBtn, true);
+  };
+  utterance.onend = () => {
+    if (manualStop) return;
+    queueIndex++;
+    speakChunk();
+  };
+  utterance.onerror = (e) => {
+    if (manualStop) return;
+    console.error('Speech chunk error:', e.error || e, '| chunk:', chunk.slice(0, 60));
+    if (e.error === 'canceled' || e.error === 'interrupted') {
+      isSpeaking = false;
+      setIconState(activeIconBtn, false);
+      activeIconBtn = null;
+      return;
+    }
+    // Skip this one problem sentence and keep going.
+    queueIndex++;
+    speakChunk();
+  };
+
+  window.speechSynthesis.speak(utterance);
+}
+
+function startSectionSpeech(btn, text) {
   if (!('speechSynthesis' in window)) {
     alert('Ye browser awaaz (text-to-speech) support nahi karta.');
     return;
   }
   if (!text || !text.trim()) {
-    alert('Padhne ke liye content nahi mila. Pehle digest load hone do.');
+    alert('Ye section khaali hai.');
     return;
   }
 
-  try {
-    window.speechSynthesis.cancel();
-    if (voiceKeepAlive) { clearInterval(voiceKeepAlive); voiceKeepAlive = null; }
+  manualStop = false;
+  window.speechSynthesis.cancel();
+  activeIconBtn = btn;
+  speechQueue = chunkText(text);
+  queueIndex = 0;
 
-    // Small delay after cancel() avoids a known Chrome bug where speak()
-    // called immediately after cancel() is silently dropped.
-    setTimeout(() => {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = selectedLang;
-      utterance.rate = selectedRate;
-      utterance.pitch = 1;
-
-      utterance.onstart = () => {
-        isSpeaking = true;
-        updateButton();
-        // Chrome bug: long utterances silently stop after ~15s unless
-        // paused/resumed periodically. This keeps long digests playing.
-        voiceKeepAlive = setInterval(() => {
-          if (window.speechSynthesis.speaking) {
-            window.speechSynthesis.pause();
-            window.speechSynthesis.resume();
-          }
-        }, 10000);
-      };
-      utterance.onend = () => {
-        isSpeaking = false;
-        updateButton();
-        if (voiceKeepAlive) { clearInterval(voiceKeepAlive); voiceKeepAlive = null; }
-      };
-      utterance.onerror = (e) => {
-        console.error('Speech error:', e.error || e);
-        isSpeaking = false;
-        updateButton();
-        if (voiceKeepAlive) { clearInterval(voiceKeepAlive); voiceKeepAlive = null; }
-        if (e.error && e.error !== 'canceled' && e.error !== 'interrupted') {
-          alert('Awaaz chalane mein dikkat aayi: ' + e.error);
-        }
-      };
-
-      currentUtterance = utterance;
-      window.speechSynthesis.speak(utterance);
-    }, 50);
-  } catch (err) {
-    console.error('Voice error:', err);
-    alert('Awaaz chalane mein error aayi: ' + err.message);
-  }
+  // Small delay after cancel() avoids a known Chrome bug where speak()
+  // called immediately after cancel() is silently dropped.
+  setTimeout(() => { speakChunk(); }, 50);
 }
 
-function toggleVoice(text) {
-  if (isSpeaking) {
+function toggleSectionVoice(btn, text) {
+  if (isSpeaking && activeIconBtn === btn) {
+    manualStop = true;
     window.speechSynthesis.cancel();
     isSpeaking = false;
-    updateButton();
-    if (voiceKeepAlive) { clearInterval(voiceKeepAlive); voiceKeepAlive = null; }
+    setIconState(btn, false);
+    activeIconBtn = null;
   } else {
-    speakText(text);
+    if (activeIconBtn && activeIconBtn !== btn) {
+      setIconState(activeIconBtn, false);
+    }
+    startSectionSpeech(btn, text);
   }
 }
 
 function setLanguage(lang) {
   selectedLang = lang;
-  // Agar already bol raha hai to naye lang ke saath restart karo
-  if (isSpeaking && currentUtterance) {
-    const text = currentUtterance.text;
-    speakText(text);
-  }
+  // Applies from the next spoken chunk onward.
 }
 
 function setSpeed(rate) {
   selectedRate = parseFloat(rate);
-  if (isSpeaking && currentUtterance) {
-    const text = currentUtterance.text;
-    speakText(text);
-  }
-}
-
-function updateButton() {
-  const btn = document.getElementById('voiceBtn');
-  if (btn) btn.textContent = isSpeaking ? '⏸ Rokein' : '🔊 Sunein';
+  // Applies from the next spoken chunk onward.
 }
 </script>
 
@@ -756,9 +812,13 @@ function updateButton() {
 
   function stopVoice() {
     if (isSpeaking) {
+      manualStop = true;
       window.speechSynthesis.cancel();
       isSpeaking = false;
-      updateButton();
+      if (activeIconBtn) {
+        setIconState(activeIconBtn, false);
+        activeIconBtn = null;
+      }
     }
   }
 
@@ -841,8 +901,21 @@ function updateButton() {
     });
   }
 
+  // Extracts the readable text for one section: the heading itself plus
+  // everything after it up to (but not including) the next h2.
+  function getSectionText(heading) {
+    let text = heading.textContent.replace(/[🔊⏸]/g, "").trim() + ". ";
+    let node = heading.nextElementSibling;
+    while (node && node.tagName !== "H2") {
+      text += " " + (node.innerText || node.textContent || "");
+      node = node.nextElementSibling;
+    }
+    return text;
+  }
+
   // Assigns anchor ids to each category heading, builds the quick-nav
-  // chip row from them, and tags the Top Headlines list for compact CSS.
+  // chip row from them, adds a per-section 🔊 icon, and tags the Top
+  // Headlines list for compact CSS.
   function enhanceContent() {
     const headings = markdownBodyEl.querySelectorAll("h2");
     quickNavEl.innerHTML = "";
@@ -860,6 +933,17 @@ function updateButton() {
         h.scrollIntoView({ behavior: "smooth", block: "start" });
       });
       quickNavEl.appendChild(chip);
+
+      const voiceIcon = document.createElement("button");
+      voiceIcon.type = "button";
+      voiceIcon.className = "section-voice-btn";
+      voiceIcon.textContent = "🔊";
+      voiceIcon.setAttribute("aria-label", "Sunein: " + text);
+      voiceIcon.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleSectionVoice(voiceIcon, getSectionText(h));
+      });
+      h.appendChild(voiceIcon);
 
       if (text === "Top Headlines") {
         const nextEl = h.nextElementSibling;

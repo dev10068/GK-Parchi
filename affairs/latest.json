@@ -1,7 +1,11 @@
 {
-  "latest_date": "26-07-2026",
-  "latest_file": "Current_Affairs_26-07-2026.md",
+  "latest_date": "27-07-2026",
+  "latest_file": "Current_Affairs_27-07-2026.md",
   "archive": [
+    {
+      "date": "27-07-2026",
+      "file": "Current_Affairs_27-07-2026.md"
+    },
     {
       "date": "26-07-2026",
       "file": "Current_Affairs_26-07-2026.md"
@@ -95,5 +99,5 @@
       "file": "Current_Affairs_04-07-2026.md"
     }
   ],
-  "headline_count": 35
+  "headline_count": 25
 }

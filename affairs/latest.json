@@ -1,7 +1,11 @@
 {
-  "latest_date": "05-10-2026",
-  "latest_file": "Current_Affairs_05-10-2026.md",
+  "latest_date": "06-10-2026",
+  "latest_file": "Current_Affairs_06-10-2026.md",
   "archive": [
+    {
+      "date": "06-10-2026",
+      "file": "Current_Affairs_06-10-2026.md"
+    },
     {
       "date": "05-10-2026",
       "file": "Current_Affairs_05-10-2026.md"
@@ -117,10 +121,6 @@
     {
       "date": "07-09-2026",
       "file": "Current_Affairs_07-09-2026.md"
-    },
-    {
-      "date": "06-09-2026",
-      "file": "Current_Affairs_06-09-2026.md"
     }
   ],
   "headline_count": 25
